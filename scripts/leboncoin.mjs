@@ -6672,32 +6672,43 @@ async function runWizard(cdp, a, opts) {
       break;
     }
     const fills = [];
-    const map = await introspectForm(cdp);
-    const { matches, unmatchedAttributes } = matchFields(map, a);
-    result.unmatchedAttributes = result.unmatchedAttributes.filter((k) => unmatchedAttributes.includes(k));
-    for (const m of matches) {
-      const target = m.target.kind === "logical" ? m.target.name : `attr:${m.target.key}`;
-      if (target === "photos") continue;
-      if (isPaidOption(m.field)) {
-        logger.warn(`Skipped \xAB ${describe(m.field)} \xBB: a paid option is never set automatically.`);
-        continue;
+    let map = await introspectForm(cdp);
+    const tried = /* @__PURE__ */ new Set();
+    for (let pass = 0; pass < 4; pass++) {
+      const { matches, unmatchedAttributes } = matchFields(map, a);
+      result.unmatchedAttributes = result.unmatchedAttributes.filter((k) => unmatchedAttributes.includes(k));
+      let didFill = false;
+      for (const m of matches) {
+        const target = m.target.kind === "logical" ? m.target.name : `attr:${m.target.key}`;
+        if (target === "photos") continue;
+        if (tried.has(target)) continue;
+        if (isPaidOption(m.field)) {
+          logger.warn(`Skipped \xAB ${describe(m.field)} \xBB: a paid option is never set automatically.`);
+          tried.add(target);
+          continue;
+        }
+        tried.add(target);
+        const label = describe(m.field);
+        if (valueAlreadySet(m.field, m.value)) {
+          fills.push({ target, field: label, value: m.value, ok: true, via: m.via, detail: "already" });
+          written.add(target);
+          continue;
+        }
+        const r = await fillField(cdp, m.field, m.value, m.hint);
+        fills.push({ target, field: label, value: m.value, ok: r.ok, via: m.via, detail: r.detail, reason: r.reason });
+        if (r.ok) {
+          written.add(target);
+          failed.delete(target);
+        } else if (!written.has(target)) {
+          failed.add(target);
+          logger.warn(`Could not set \xAB ${label} \xBB to "${m.value}"${r.reason ? ` (${r.reason}${r.detail ? `: ${r.detail}` : ""})` : ""}.`);
+        }
+        didFill = true;
+        await delay(300);
       }
-      const label = describe(m.field);
-      if (valueAlreadySet(m.field, m.value)) {
-        fills.push({ target, field: label, value: m.value, ok: true, via: m.via, detail: "already" });
-        written.add(target);
-        continue;
-      }
-      const r = await fillField(cdp, m.field, m.value, m.hint);
-      fills.push({ target, field: label, value: m.value, ok: r.ok, via: m.via, detail: r.detail, reason: r.reason });
-      if (r.ok) {
-        written.add(target);
-        failed.delete(target);
-      } else if (!written.has(target)) {
-        failed.add(target);
-        logger.warn(`Could not set \xAB ${label} \xBB to "${m.value}"${r.reason ? ` (${r.reason}${r.detail ? `: ${r.detail}` : ""})` : ""}.`);
-      }
-      await delay(300);
+      if (!didFill) break;
+      await delay(settle);
+      map = await introspectForm(cdp);
     }
     if (opts.photos.length && result.uploadedPhotos === 0 && map.fields.some((f) => f.type === "file")) {
       result.uploadedPhotos = await uploadPhotos(cdp, DEPOSIT.photoFileInput, opts.photos, DEPOSIT.photoThumbnails);
