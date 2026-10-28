@@ -414,7 +414,7 @@ var init_selectors = __esm({
        * `button[type=submit]` fallback: every step's « Continuer » is one.
        */
       publishButton: {
-        textCandidates: ["D\xE9poser mon annonce", "D\xE9poser l'annonce", "Publier mon annonce", "Publier l'annonce", "Publier"],
+        textCandidates: ["D\xE9poser sans booster mon annonce", "D\xE9poser mon annonce", "D\xE9poser l'annonce", "Publier mon annonce", "Publier l'annonce", "Publier"],
         css: ['button[data-qa-id="adsubmit"]']
       },
       /**
@@ -422,7 +422,7 @@ var init_selectors = __esm({
        * the ad (« Un dernier aperçu avant de publier… », « En cliquant sur
        * "Continuer", je confirme l'exactitude… »). The wizard never clicks past it.
        */
-      finalStepMarkers: ["avant de publier", "je confirme l'exactitude", "deposer mon annonce", "publier mon annonce"],
+      finalStepMarkers: ["avant de publier", "je confirme l'exactitude", "deposer mon annonce", "publier mon annonce", "boostez votre annonce", "deposer sans booster"],
       /** The current step's heading (step fingerprint). */
       stepTitle: ["#step-title", "main h2", "form h2", "h2", "h1"],
       /** A published ad URL carries the numeric list_id. */
